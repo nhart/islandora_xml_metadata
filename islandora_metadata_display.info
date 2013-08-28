@@ -1,0 +1,5 @@
+name = "Islandora metadata display"
+description = "Provides a GUI to alter the metadata display on objects"
+package = Islandora
+version = 7.x-dev
+core = 7.x
