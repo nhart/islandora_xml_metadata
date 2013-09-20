@@ -1,7 +1,0 @@
-name = Islandora XML Metadata Display
-description = Construct metadata displays from XML datastreams
-configure = admin/islandora/display/metadata/xml
-dependencies[] = islandora
-package = Islandora
-version = 7.x-dev
-core = 7.x

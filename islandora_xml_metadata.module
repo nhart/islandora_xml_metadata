@@ -47,16 +47,14 @@ function islandora_xml_metadata_conf($object) {
 
 function islandora_xml_metadata_build($data, $xml) {
   $rows = array();
-
   foreach ($data as $line) {
-    //dsm($line, 'line');
     try {
-      dd($xml, 'xml');
       $values = $xml->xpath($line['path']);
       $label = $line['label'];
       foreach ($values as $value) {
+        //add check for drupal user roles in there
         if (isset($line['data'])) {
-          dsm($value, 'value');
+          //test nested rows
           $value = islandora_xml_metadata_build($line['data'], $value);
         }
         $value = (string) $value;
@@ -67,8 +65,8 @@ function islandora_xml_metadata_build($data, $xml) {
           }
 
           $rows[] = array(
-            $label,
-            $value,
+            'label' => $label,
+            'value' => $value,
           );
           $label = '';
         }
@@ -83,7 +81,7 @@ function islandora_xml_metadata_build($data, $xml) {
   }
 
 
-  return theme('islandora_xml_metadata_rows', $rows);
+  return $rows;
 }
 
 function islandora_xml_metadata_view($object) {
@@ -91,18 +89,20 @@ function islandora_xml_metadata_view($object) {
   $conf = islandora_xml_metadata_conf($object);
   if (isset($conf)) {
     $data = $conf['data'];
-    $table = '';
+    $rows = array();
     try {
       $xml = (isset($object[$conf['ds_id']]) ? $object[$conf['ds_id']]->content : NULL);
-      dsm($xml, 'xml');
-      $metadata = new SimpleXMLElement($xml);
-      $metadata->registerXPathNamespace($conf['namespace']['ns'], $conf['namespace']['uri']);
-      $table = islandora_xml_metadata_build($data, $metadata);
+      //dsm($xml, 'xml');
+      if ($xml) {
+        $metadata = new SimpleXMLElement($xml);
+        $metadata->registerXPathNamespace($conf['namespace']['ns'], $conf['namespace']['uri']);
+        $rows = islandora_xml_metadata_build($data, $metadata);
+      }
     } catch (Exception $exc) {
       //catch error if need be
     }
   }
-  return $table;
+  return $rows;
 }
 
 //move this stuff to a db table
@@ -115,38 +115,15 @@ function data() {
         'uri' => 'http://www.loc.gov/mods/v3',
       ),
       'data' => array(
-        array(
-          'label' => 'Place',
+        'title' => array(
+          'label' => 'Title',
           'link' => 'http://google.ca/%value%',
-          'path' => '//mods:place',
+          'path' => '//mods:title',
           'multi_value' => TRUE,
           'role' => array(
             'user role 1',
             'user role 2'
           ),
-          'data' => array(
-            'label' => 'Place',
-            'link' => 'http://google.ca/%value%',
-            'path' => 'mods:placeTerm',
-            'multi_value' => TRUE,
-            'role' => array(
-              'user role 1',
-            ),
-          ),
-        ),
-      ),
-    ),
-    'islandora:sp_large_image_cmodel' => array(
-      'ds_id' => 'MODS',
-      'namespace' => array(
-        'ns' => 'mods',
-        'uri' => 'http://www.loc.gov/mods/v3',
-      ),
-      'data' => array(
-        array(
-          'label' => 'Titlee',
-          'link' => 'http://google.ca/%value%',
-          'path' => '//mods:name',
         ),
       ),
     ),
@@ -199,7 +176,5 @@ function islandora_xml_metadata_callback(AbstractObject $object) {
   $elements = array(
     'islandora_object' => $object,
   );
-  dsm('h1');
   return theme('islandora_xml_metadata_display', $elements);
-  //return 'theme goes here';
 }
