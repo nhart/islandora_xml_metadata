@@ -30,92 +30,92 @@ function islandora_metadata_display_menu() {
     )
   );
 }
-/*
- * determine if metadata is in a seperate tab or not
- */
+
 function islandora_metsdata_display_view_access($object) {
-  return TRUE;
+  return islandora_metadata_display_conf($object);
 }
 
-/**
- * Logic to process output for labels and values
- * @param type $object
- * @return string
- */
-function islandora_metadata_display_view($object) {
+function islandora_metadata_display_conf($object) {
   $data = data();
-  $rows = array();
   $models = array_flip($object->models);
-  dsm($models, 'models');
-  $count = array_intersect_key($data, $models);
-  if(count($count) >= 1) {
-    $match = array_shift($count);
+  $conf = array_intersect_key($data, $models);
+  if (count($conf) >= 1) {
+    return array_shift($conf);
   }
-  dsm($match);
-  try {
-    $xml = (isset($object[$match['ds_id']]) ? $object[$match['ds_id']]->content : NULL);
-    dsm($xml, 'xml');
-    $metadata = new SimpleXMLElement($xml);
-    $metadata->registerXPathNamespace($match['namespace']['ns'], $match['namespace']['uri']);
+  return FALSE;
+}
 
-    foreach($match['data'] as $line) {
-      //dsm($line, 'line');
-      try {
-        $values = $metadata->xpath($line['path']);
-        $row_value = array();
-        foreach ($values as $value) {
-          $row_value[] = (string) $value;
-          //calculate multi value xpath
-          if(isset($line['multi_value']) && $line['multi_value']) {
-            //break; oppsite of break in here
-          }
-        }
-        dsm($values, 'values');
-        $value = array_shift($values);
-        //$value = (string) $value;
-        dsm($value, 'value');
-        if(isset($line['link']) && $line['link']) {
-          $line['link'] = preg_replace('/%value%/', $value, $line['link']);
-          $value = l($value, $line['link']);
-        }
-        $i=0;
-        //clean up repeating label logic
-        $label = $line['label'];
-        foreach($row_value as $value) {
-          $i++;
-          if(isset($line['repeat_label']) && $line['repeat_label']) {
-            $label = $line['label'];
-          }
-          $rows[] = array(
-            $label,
-            $value,
-          );
-          $label = '';
-        }
+function islandora_metadata_display_build($data, $xml) {
+  $rows = array();
 
+      foreach ($data as $line) {
+        //dsm($line, 'line');
+        try {
+          dd($xml, 'xml');
+          $values = $xml->xpath($line['path']);
+          $label = $line['label'];
+          foreach ($values as $value) {
+            if(isset($line['data'])) {
+              dsm($value, 'value');
+              $value = islandora_metadata_display_build($line['data'], $value);
+            }
+            $value = (string) $value;
+            if ($value) {
+              if (isset($line['link']) && $line['link']) {
+                $line['link'] = preg_replace('/%value%/', $value, $line['link']);
+                $value = l($value, $line['link']);
+              }
+
+              $rows[] = array(
+                $label,
+                $value,
+              );
+              $label = '';
+            }
+
+            if ((isset($line['multi_value']) && !$line['multi_value']) || !isset($line['multi_value'])) {
+              break;
+            }
+        }
       } catch (Exception $exc) {
 
       }
-
-
     }
-  } catch (Exception $exc) {
-    //catch error if need be
-  }
-
 
 
   return theme_table(array(
-    'header' => array('label', 'value'),
-    'rows' => $rows,
-    'attributes' => array(),
-    'empty' => t('No metadata configurations found'),
-    'caption' => '',
-    'colgroups' => array(),
-    'sticky' => TRUE,
-  ));
+        'header' => array('label', 'value'),
+        'rows' => $rows,
+        'attributes' => array(),
+        'empty' => t('No metadata found'),
+        'caption' => '',
+        'colgroups' => array(),
+        'sticky' => TRUE,
+      ));
 }
 
+
+function islandora_metadata_display_view($object) {
+
+  $conf = islandora_metadata_display_conf($object);
+  if (isset($conf)) {
+    $data = $conf['data'];
+    $table = '';
+    try {
+      $xml = (isset($object[$conf['ds_id']]) ? $object[$conf['ds_id']]->content : NULL);
+      dsm($xml, 'xml');
+      $metadata = new SimpleXMLElement($xml);
+      $metadata->registerXPathNamespace($conf['namespace']['ns'], $conf['namespace']['uri']);
+      $table = islandora_metadata_display_build($data, $metadata);
+
+    } catch (Exception $exc) {
+      //catch error if need be
+    }
+  }
+  return $table;
+}
+
+//move this stuff to a db table
 function data() {
   $data = array(
     'islandora:sp_basic_image' => array(
@@ -126,17 +126,16 @@ function data() {
       ),
       'data' => array(
         array(
-          'label' => 'Title',
+          'label' => 'Place',
           'link' => 'http://google.ca/%value%',
-          'path' => '//mods:placeTerm',
+          'path' => '//mods:place',
           'multi_value' => TRUE,
-          'repeat_label' => TRUE,
-        ),
-        array(
-          'label' => 'Name',
-          'path' => '//mods:placeTerm',
-          'multi_value' => TRUE,
-          'repeat_label' => FALSE,
+          'data' => array(
+            'label' => 'Place',
+            'link' => 'http://google.ca/%value%',
+            'path' => 'mods:placeTerm',
+            'multi_value' => TRUE,
+          ),
         ),
       ),
     ),
@@ -148,15 +147,16 @@ function data() {
       ),
       'data' => array(
         array(
-          'label' => 'Title',
+          'label' => 'Titlee',
           'link' => 'http://google.ca/%value%',
-          'path' => '//mods:title',
+          'path' => '//mods:name',
         ),
       ),
     ),
   );
   return $data;
 }
+
 /**
  * Implements hook_theme().
  */
@@ -168,6 +168,5 @@ function islandora_metadata_display_theme() {
 }
 
 function islandora_metadata_display_islandora_view_object_alter(&$object, &$rendered) {
-  dsm($rendered, 'rendered');
-
+  //dsm($rendered, 'rendered');
 }
