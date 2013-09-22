@@ -46,60 +46,58 @@ function islandora_xml_metadata_conf($object) {
 }
 
 function islandora_xml_metadata_build($data, $xml) {
+  global $user;
+  $xml->registerXPathNamespace('mods', 'http://www.loc.gov/mods/v3');
   $rows = array();
   foreach ($data as $line) {
-    try {
+
+    $roles = $line['roles'];
+    dsm($roles, 'roles');
+    if ((user_is_anonymous() && array_search('anonymous user', $roles) !== FALSE) ||
+        (count(array_intersect($roles, $user->roles)) >= 1) ||
+        (!user_is_anonymous() && array_search('authenticated user', $roles) !== FALSE)) {
       $values = $xml->xpath($line['path']);
       $label = $line['label'];
       foreach ($values as $value) {
-        //add check for drupal user roles in there
         if (isset($line['data'])) {
-          //test nested rows
           $value = islandora_xml_metadata_build($line['data'], $value);
         }
-        $value = (string) $value;
-        if ($value) {
+        else {
           if (isset($line['link']) && $line['link']) {
             $line['link'] = preg_replace('/%value%/', $value, $line['link']);
-            $value = l($value, $line['link']);
+            $value = l($value, $line['link'], array('html' => TRUE));
           }
-
-          $rows[] = array(
-            'label' => $label,
-            'value' => $value,
-          );
-          $label = '';
         }
+
+        $rows[] = array(
+          'label' => $label,
+          'value' => $value,
+        );
+        $label = '';
 
         if ((isset($line['multi_value']) && !$line['multi_value']) || !isset($line['multi_value'])) {
           break;
         }
       }
-    } catch (Exception $exc) {
-
     }
   }
-
-
-  return $rows;
+  return theme('islandora_xml_metadata_rows', array('rows' => $rows));
 }
 
 function islandora_xml_metadata_view($object) {
+  global $user;
+  dsm($user, 'user');
+  dsm(user_roles(), 'roles');
 
   $conf = islandora_xml_metadata_conf($object);
   if (isset($conf)) {
     $data = $conf['data'];
     $rows = array();
-    try {
-      $xml = (isset($object[$conf['ds_id']]) ? $object[$conf['ds_id']]->content : NULL);
-      //dsm($xml, 'xml');
-      if ($xml) {
-        $metadata = new SimpleXMLElement($xml);
-        $metadata->registerXPathNamespace($conf['namespace']['ns'], $conf['namespace']['uri']);
-        $rows = islandora_xml_metadata_build($data, $metadata);
-      }
-    } catch (Exception $exc) {
-      //catch error if need be
+    $xml = (isset($object[$conf['ds_id']]) ? $object[$conf['ds_id']]->content : NULL);
+    if ($xml) {
+      $metadata = new SimpleXMLElement($xml);
+      $metadata->registerXPathNamespace($conf['namespace']['ns'], $conf['namespace']['uri']);
+      $rows = islandora_xml_metadata_build($data, $metadata);
     }
   }
   return $rows;
@@ -116,13 +114,55 @@ function data() {
       ),
       'data' => array(
         'title' => array(
-          'label' => 'Title',
+          'label' => 'title info',
           'link' => 'http://google.ca/%value%',
-          'path' => '//mods:title',
+          'path' => 'mods:titleInfo',
           'multi_value' => TRUE,
-          'role' => array(
-            'user role 1',
-            'user role 2'
+          'roles' => array(
+            'administratorrr',
+            'anonymous user',
+          ),
+          'data' => array(
+            'title' => array(
+              'label' => 'title',
+              'link' => 'http://google.ca/%value%',
+              'path' => 'mods:title',
+              'multi_value' => TRUE,
+              'roles' => array(
+                'administratorrr',
+                'anonymous user',
+              ),
+            ),
+          ),
+        ),
+        'place1' => array(
+          'label' => 'origin info',
+          'link' => 'http://google.ca/%value%',
+          'path' => 'mods:originInfo',
+          'multi_value' => TRUE,
+          'roles' => array(
+            'administratorrr',
+          ),
+          'data' => array(
+            'place' => array(
+              'label' => 'place',
+              'link' => 'http://google.ca/%value%',
+              'path' => 'mods:place',
+              'multi_value' => TRUE,
+              'roles' => array(
+                'administratorrr',
+              ),
+              'data' => array(
+                'place' => array(
+                  'label' => 'place term',
+                  'path' => 'mods:placeTerm',
+                  'multi_value' => TRUE,
+                  'roles' => array(
+                    'administratorrr',
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

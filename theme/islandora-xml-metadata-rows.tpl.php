@@ -1,3 +1,4 @@
+<?php if(count($rows) > 0): ?>
 <dl xmlns:dcterms="http://purl.org/dc/terms/" class="islandora-inline-metadata islandora-metadata-fields">
   <?php $row_field = 0; ?>
   <?php foreach ($rows as $row): ?>
@@ -10,3 +11,4 @@
     <?php $row_field++; ?>
   <?php endforeach; ?>
 </dl>
+<?php endif; ?>
